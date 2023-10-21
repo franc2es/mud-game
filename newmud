@@ -1,0 +1,208 @@
+pragma solidity ^0.8.7;
+
+contract SurvivalGame {
+    address public owner;
+    bool public isDaytime;
+    uint256 public techPoints;
+    uint256 public militaryPoints;
+    bool public hasChosenPpoints
+
+    // 阈值，根据你的游戏规则设置
+    uint256 public techThreshold = 100;
+    uint256 public militaryThreshold = 50;
+
+    // 地图系统合约
+    MapSystem public mapSystem;
+
+    constructor(address _mapSystemAddress) {
+        owner = msg.sender;
+        isDaytime = true;
+        techPoints = 0;
+        militaryPoints = 0;
+        hasChosenPpoints = false;
+        mapSystem = MapSystem(_mapSystemAddress); // 初始化地图系统合约实例
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function");
+        _;
+    }
+
+    modifier isNighttime() {
+        require(!isDaytime, "It's not nighttime");
+        _;
+    }
+
+    function changeWeather() internal {
+        // 实现改变下一轮天气的逻辑
+    }
+
+    function conquerLandFromOpponent(address opponent) internal {
+        // 实现获得对方土地的逻辑
+    }
+
+   // 选择获取科技点数
+    function chooseTechPoints() public onlyOwner isNighttime hasNotChosenPoints {
+        techPoints += 2;
+        hasChosenPoints = true; // 标记已经选择了点数
+    }
+
+    // 选择获取军事点数
+    function chooseMilitaryPoints() public onlyOwner isNighttime hasNotChosenPoints {
+        militaryPoints += 2;
+        hasChosenPoints = true; // 标记已经选择了点数
+    }
+
+    
+      
+    // 开始白天
+    function startDaytime() external onlyOwner {
+        isDaytime = true;
+    }
+
+    // 开始夜晚
+    function startNighttime() external onlyOwner {
+        isDaytime = false;
+    }
+
+   
+
+contract MapSystem {
+    // 定义玩家结构体来存储玩家的状态
+    struct Player {
+        bool spawned;
+        bool alive;
+        uint32 x;
+        uint32 y;
+    }
+
+    // 映射地址到玩家
+    mapping(address => Player) public players;
+
+    // 更改玩家的状态为已生成
+    function spawn(uint32 x, uint32 y) public {
+        require(!players[msg.sender].spawned, "Player already spawned");
+
+        // 设置玩家的状态
+        players[msg.sender] = Player(true, true, x, y);
+
+        // 其他生成逻辑...
+    }
+
+    // 玩家移动到新位置
+    function move(uint32 x, uint32 y) public {
+        Player storage player = players[msg.sender];
+        require(player.spawned, "Player has not spawned");
+        require(player.alive, "Player is not alive");
+
+        // 实现移动逻辑...
+
+        // 检查是否与对手相邻
+        address opponent = getAdjacentPlayer(x, y);
+        if (opponent != address(0)) {
+            // 触发战争
+            triggerBattle(msg.sender, opponent);
+        }
+    }
+
+    // 获取相邻的对手玩家
+    function getAdjacentPlayer(uint32 x, uint32 y) internal view returns (address) {
+        Player storage currentPlayer = players[msg.sender];
+        uint32 currentPlayerX = currentPlayer.x;
+        uint32 currentPlayerY = currentPlayer.y;
+
+        // 检查上下左右相邻的位置
+        if ((x == currentPlayerX && (y == currentPlayerY - 1 || y == currentPlayerY + 1)) ||
+            (y == currentPlayerY && (x == currentPlayerX - 1 || x == currentPlayerX + 1))) {
+            // 返回相邻对手玩家的地址
+            address opponent = getOwner(x, y);
+            if (opponent != address(0) && opponent != msg.sender) {
+                return opponent;
+            }
+        }
+
+        return address(0); // 没有相邻的对手玩家
+    }
+
+    // 获取指定位置的领地所有者
+   function triggerBattle(address player1, address player2) internal {
+    uint256 militaryPointsPlayer1 = getMilitaryPoints(player1);
+    uint256 techPointsPlayer1 = getTechnologyPoints(player1);
+    uint256 militaryPointsPlayer2 = getMilitaryPoints(player2);
+    uint256 techPointsPlayer2 = getTechnologyPoints(player2);
+
+    if (militaryPointsPlayer1 > militaryPointsPlayer2) {
+        // 军事点数高的获得对方土地
+        conquerLandFromOpponent(player1, player2);
+    } else if (techPointsPlayer1 > techPointsPlayer2) {
+        // 科技点数高的获得控制下一轮天气的权力
+        changeWeather();
+    }
+    // 如果军事点数和科技点数相同，可以添加其他逻辑或略过
+}
+address public winner;
+address public loser;
+
+function triggerBattle(address player1, address player2) internal {
+    uint256 militaryPointsPlayer1 = getMilitaryPoints(player1);
+    uint256 militaryPointsPlayer2 = getMilitaryPoints(player2);
+
+    if (militaryPointsPlayer1 > militaryPointsPlayer2) {
+        winner = player1;
+        loser = player2; // player1 赢
+    } else if (militaryPointsPlayer1 < militaryPointsPlayer2) {
+        winner = player2; 
+        loser = player2;// player2 赢
+    } else {
+        winner = address(0); // 平局
+    }
+
+    if (winner != address(0)) {
+        conquerLandFromOpponent(winner, player1 == winner ? player2 : player1);
+    } else {
+        // 平局的处理逻辑
+    }
+}
+
+// 定义一个映射，将地址与军事点数关联
+mapping(address => uint256) public playerMilitaryPoints;
+
+// 获取玩家的军事点数
+// 获取玩家的军事点数
+function getMilitaryPoints(address player) public view returns (uint256) {
+    return playerMilitaryPoints[player];
+}
+
+
+
+
+
+
+// 获取玩家的科技点数
+function getTechnologyPoints(address player) internal view returns (uint256) {
+    // 实现获取玩家科技点数的逻辑...
+}
+
+// 征服对手的土地
+// 征服对手的土地
+function conquerLandFromOpponent(address winner, address loser) internal {
+    // 获取土地的坐标
+    uint32 x = players[loser].x;
+    uint32 y = players[loser].y;
+
+    // 设置新的土地所有者为胜利者
+    players[loser].spawned = false; // 失败的玩家标记为未生成
+    players[loser].alive = false; // 失败的玩家标记为不存活
+    players[winner].spawned = true; // 胜利者标记为生成
+    players[winner].alive = true; // 胜利者标记为存活
+    players[winner].x = x;
+    players[winner].y = y;
+}
+
+// 改变下一轮天气
+function changeWeather() internal {
+    // 实现改变下一轮天气的逻辑...
+}
+    
+    // 触发战争逻辑
+    
