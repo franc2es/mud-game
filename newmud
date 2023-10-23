@@ -1,4 +1,61 @@
 pragma solidity ^0.8.7;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.7;
+
+contract TurnBasedGame {
+    address public player1;
+    address public player2;
+    address public currentPlayer;
+    uint256 public currentRound;
+
+    event RoundStart(uint256 round, address currentPlayer);
+
+    constructor() {
+        player1 = msg.sender;
+        player2 = address(0x0); // 初始化第二个玩家为一个特殊地址
+        currentRound = 1;
+        currentPlayer = player1;
+        techPointsPlayer1 = 0;
+        techPointsPlayer2 = 0;
+        emit RoundStart(currentRound, currentPlayer);
+    }
+
+    modifier onlyPlayer() {
+        require(msg.sender == currentPlayer, "It's not your turn.");
+        _;
+    }
+
+    function joinGame() public {
+        require(player2 == address(0x0), "Game is full.");
+        player2 = msg.sender;
+    }
+
+    function endTurn() public onlyPlayer {
+        if (msg.sender == player1) {
+            currentPlayer = player2;
+        } else {
+            currentPlayer = player1;
+            currentRound++;
+            emit RoundStart(currentRound, currentPlayer);
+        }
+    }
+    function endTurn() public onlyCurrentPlayer {
+    uint256 randomValue = generateRandomNumber();
+    isDaytime = (randomValue == 0); // 如果随机数为0，则是白天，否则是黑夜
+
+    if (currentPlayer == player1) {
+        currentPlayer = player2;
+    } else {
+        currentPlayer = player1;
+        round++;
+    }
+    emit NewRound(round, currentPlayer);
+}
+
+
+    // 游戏逻辑，包括胜负条件等，需要根据实际需求进行实现
+}
+
 
 contract SurvivalGame {
     address public owner;
@@ -7,10 +64,7 @@ contract SurvivalGame {
     uint256 public militaryPoints;
     bool public hasChosenPpoints
 
-    // 阈值，根据你的游戏规则设置
-    uint256 public techThreshold = 100;
-    uint256 public militaryThreshold = 50;
-
+   
     // 地图系统合约
     MapSystem public mapSystem;
 
@@ -76,26 +130,52 @@ contract MapSystem {
         uint32 y;
     }
 
-    // 映射地址到玩家
+    pragma solidity ^0.8.0;
+
+contract MapSystem {
+    struct Player {
+        bool spawn;
+        uint32[] ownedLand; // 存储玩家占领的土地坐标 (x, y)
+    }
+
     mapping(address => Player) public players;
 
     // 更改玩家的状态为已生成
     function spawn(uint32 x, uint32 y) public {
-        require(!players[msg.sender].spawned, "Player already spawned");
+        Player storage player = players[msg.sender];
+        require(!player.spawned, "Player already spawned");
 
         // 设置玩家的状态
-        players[msg.sender] = Player(true, true, x, y);
-
-        // 其他生成逻辑...
+        player.spawned = true;
+        player.ownedLand.push(x); // 添加占领的土地坐标
+        player.ownedLand.push(y);
     }
+    //玩家状态生成后，spawn还可以
 
-    // 玩家移动到新位置
+    // 玩家占领新位置
     function move(uint32 x, uint32 y) public {
         Player storage player = players[msg.sender];
         require(player.spawned, "Player has not spawned");
-        require(player.alive, "Player is not alive");
+        
+        // 检查位置是否已经被占领
+        require(!isOccupied(x, y, msg.sender), "This space is already occupied");
+        
+        // 更新玩家占领的土地坐标
+        player.ownedLand.push(x);
+        player.ownedLand.push(y);
+    }
 
-        // 实现移动逻辑...
+    // 检查位置是否已经被占领
+    function isOccupied(uint32 x, uint32 y, address playerAddress) internal view returns (bool) {
+        Player storage player = players[playerAddress];
+        for (uint256 i = 0; i < player.ownedLand.length; i += 2) {
+            if (player.ownedLand[i] == x && player.ownedLand[i + 1] == y) {
+                return true; // 位置已被占领
+            }
+        }
+        return false; // 位置未被占领
+    }
+}
 
         // 检查是否与对手相邻
         address opponent = getAdjacentPlayer(x, y);
@@ -191,13 +271,10 @@ function conquerLandFromOpponent(address winner, address loser) internal {
     uint32 y = players[loser].y;
 
     // 设置新的土地所有者为胜利者
-    players[loser].spawned = false; // 失败的玩家标记为未生成
-    players[loser].alive = false; // 失败的玩家标记为不存活
-    players[winner].spawned = true; // 胜利者标记为生成
-    players[winner].alive = true; // 胜利者标记为存活
-    players[winner].x = x;
-    players[winner].y = y;
+    players[winner].ownedLand.push(x); // 添加土地坐标到胜利者的领地
+    players[winner].ownedLand.push(y);
 }
+
 
 // 改变下一轮天气
 function changeWeather() internal {
